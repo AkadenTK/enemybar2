@@ -1,6 +1,6 @@
 
 -- Meta class
-bars = {x_res = windower.get_windower_settings().x_res,y_res = windower.get_windower_settings().y_res}
+bars = {x_res = windower.get_windower_settings().ui_x_res,y_res = windower.get_windower_settings().ui_y_res}
 
 -- Base class method new
 

@@ -45,6 +45,7 @@ debug_string = ''
 local state = {}
 state.setup = false
 state.focustarget = nil
+state.in_cs = false
 
 function initialize_bars()
     if target_bar then 
@@ -99,7 +100,7 @@ function update_bar(bar, target, show)
             bars.hide(bar)
         end
     else
-        if target ~= nil and show then     
+        if target ~= nil and show and not state.in_cs then     
             bars.show(bar)
 
             local dist = get_distance(windower.ffxi.get_mob_by_target('me'), target)
@@ -158,7 +159,7 @@ function update_aggro_bars(show)
         local ordered_aggro = get_ordered_aggro()
 
         local e_bar_i = 1
-        if show then
+        if show and not state.in_cs then
             for i,v in ipairs(ordered_aggro) do
                 if e_bar_i > settings.aggro_bar.count then
                     break
@@ -514,6 +515,13 @@ windower.register_event('login', function(...)
         player_id = windower.ffxi.get_player().id
     end
     state = {}
+end)
+windower.register_event('status change', function(new_status_id)
+    if new_status_id == 4 then
+        state.in_cs = true
+    else
+        state.in_cs = false
+    end
 end)
 
 -- Handle drag and drop

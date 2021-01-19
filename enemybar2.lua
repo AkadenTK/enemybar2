@@ -216,24 +216,31 @@ end
 
 function check_claim(claim_id)
     if player_id == claim_id then
-            return true
+            return 1
     else
-        if is_party_member_or_pet(claim_id) then
-            return true
+        local m, p = is_party_member_or_pet(claim_id)
+        if m and p == 1 then
+            return 2
+        elseif m and p > 1 then
+            return 3
         end
     end
-    return false
+    return 0
 end
 
 function get_tint_by_target(target)
     if target.hpp == 0 then
         return {red=155, green=155, blue=155}
-    elseif check_claim(target.claim_id) then
-        return {red=255, green=180, blue=180}
+    elseif check_claim(target.claim_id) == 1 or check_claim(target.claim_id) == 2 then
+        return {red=255, green=130, blue=130}
+    elseif check_claim(target.claim_id) == 3 then
+        return {red=255, green=142, blue=205}
     elseif is_party_member_or_pet(target.id) and target.id ~= player_id then
         return {red=102, green=255, blue=255}
     elseif not target.is_npc then
         return {red=255, green=255, blue=255}
+    elseif target.spawn_type == 2 or target.spawn_type == 34 then
+        return {red=150, green=225, blue=150} --Green town NPCs and doors
     elseif target.claim_id == 0 then
         return {red=230, green=230, blue=138} 
     elseif target.claim_id ~= 0 then
@@ -268,17 +275,19 @@ function is_npc(mob_id)
 end
 
 function is_party_member_or_pet(mob_id)
-    if mob_id == player_id then return true end
+    if mob_id == player_id then return true, 1 end
 
     if is_npc(mob_id) then return false end
 
-    return party_members[mob_id]
+    if party_members[mob_id] == nil then return false end
+
+    return party_members[mob_id], party_members[mob_id].party
 end
 
 function handle_party_packets(id, data)
     if id == 0x0DD then
         -- cache party 
-        cache_party_members()
+        cache_party_members:schedule(1)
     elseif id == 0x067 then
         local p =  packets.parse('incoming', data)
         if p['Owner Index'] > 0 then
@@ -295,23 +304,23 @@ function cache_party_members()
     local party = windower.ffxi.get_party()
     if not party then return end
     for i=0, (party.party1_count or 0) - 1 do
-        cache_party_member(party['p'..i])            
+        cache_party_member(party['p'..i], 1)            
     end
     for i=0, (party.party2_count or 0) - 1 do
-        cache_party_member(party['a1'..i])            
+        cache_party_member(party['a1'..i], 2)            
     end
     for i=0, (party.party3_count or 0) - 1 do
-        cache_party_member(party['a2'..i])            
+        cache_party_member(party['a2'..i], 3)            
     end
 end
 
-function cache_party_member(p)
+function cache_party_member(p, party_number)
     if p and p.mob then
-        party_members[p.mob.id] = {is_pc = true,}
+        party_members[p.mob.id] = {is_pc = true, party=party_number}
         if p.mob.pet_index then
             local pet = windower.ffxi.get_mob_by_index(p.mob.pet_index)
             if pet then
-                party_members[pet.id] = {is_pet = true, owner = p.id}
+                party_members[pet.id] = {is_pet = true, owner = p.id, party=party_number}
             end
         end
     end
@@ -515,6 +524,8 @@ windower.register_event('login', function(...)
         player_id = windower.ffxi.get_player().id
     end
     state = {}
+
+    cache_party_members()
 end)
 windower.register_event('status change', function(new_status_id)
     if new_status_id == 4 then
@@ -628,3 +639,5 @@ if settings_old.pos then
 end
 settings = config.load(defaults)
 config.register(settings, initialize_bars)
+
+cache_party_members()
